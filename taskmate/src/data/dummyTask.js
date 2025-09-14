@@ -3,5 +3,7 @@ export const dummyTasks = [
  { id: '2', title: 'Baca materi FlatList', description: 'Dokumentasi React Native', category: 'RPL', deadline: '2025-08-30', status: 'done'
 },
  { id: '3', title: 'Rancang struktur folder', description:
-'components, screens, data', category: 'Mobile', deadline: '2025-08-28', status: 'pending' }
+'components, screens, data', category: 'Mobile', deadline: '2025-08-28', status: 'pending' },
+ { id: '4', title: 'Dasar Arduino', description:
+'pembelajaran tentang Arduino', category: 'IoT', deadline: '2025-08-29', status: 'pending' }
 ];
