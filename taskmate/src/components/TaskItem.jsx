@@ -2,7 +2,6 @@
 
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 
-// Fungsi untuk mendapatkan warna badge berdasarkan kategori
 const getCategoryColor = (category) => {
   switch (category.toLowerCase()) {
     case 'mobile':
@@ -16,27 +15,43 @@ const getCategoryColor = (category) => {
   }
 };
 
-export default function TaskItem({ task, onToggle }) {
+export default function TaskItem({ task, onToggle, onDelete }) {
   const isDone = task.status === 'done';
 
+  // DIUBAH: Logika untuk mendapatkan teks dan style badge berdasarkan 3 status
+  const getStatusInfo = (status) => {
+    switch (status) {
+      case 'pending':
+        return { text: 'Pending', style: styles.badgePending };
+      case 'todo':
+        return { text: 'Todo', style: styles.badgeTodo };
+      case 'done':
+        return { text: 'Done', style: styles.badgeDone };
+      default:
+        return { text: 'Pending', style: styles.badgePending };
+    }
+  };
+
+  const statusInfo = getStatusInfo(task.status);
+
   return (
-    <TouchableOpacity onPress={() => onToggle?.(task)} activeOpacity={0.7}>
+    <TouchableOpacity onPress={() => onToggle?.(task)} onLongPress={() => onDelete?.(task)} activeOpacity={0.7}>
       <View style={[styles.card, isDone && styles.cardDone]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.title, isDone && styles.strike]}>{task.title}</Text>
           <Text style={styles.desc}>{task.description}</Text>
           
-          {/* Baris meta dengan badge kategori */}
           <View style={styles.metaContainer}>
             <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(task.category) }]}>
               <Text style={styles.categoryText}>{task.category}</Text>
             </View>
             <Text style={styles.meta}>• Due {task.deadline}</Text>
           </View>
-
         </View>
-        <View style={[styles.badge, isDone ? styles.badgeDone : styles.badgePending]}>
-          <Text style={styles.badgeText}>{isDone ? 'Done' : 'Todo'}</Text>
+        
+        {/* Menggunakan info status dinamis */}
+        <View style={[styles.badge, statusInfo.style]}>
+          <Text style={styles.badgeText}>{statusInfo.text}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -51,12 +66,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    elevation: 2, // Memberi sedikit bayangan
+    elevation: 2,
   },
   cardDone: { backgroundColor: '#f1f5f9' },
   title: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
   strike: { textDecorationLine: 'line-through', color: '#64748b' },
-  desc: { color: '#475569', marginBottom: 8 }, // Margin bottom disesuaikan
+  desc: { color: '#475569', marginBottom: 8 },
   metaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -78,7 +93,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 12,
   },
-  badgePending: { backgroundColor: '#fee2e2' },
-  badgeDone: { backgroundColor: '#dcfce7' },
-  badgeText: { fontWeight: '700', fontSize: 12 },
+  badgePending: { backgroundColor: '#fee2e2' }, // Merah muda untuk Pending
+  badgeTodo: { backgroundColor: '#fef9c3' },   // BARU: Kuning untuk Todo (in progress)
+  badgeDone: { backgroundColor: '#dcfce7' },   // Hijau untuk Done
+  badgeText: { fontWeight: '700', fontSize: 12, color: '#3f3f46'}, // Warna teks disamakan
 });
