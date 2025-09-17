@@ -1,131 +1,77 @@
-// app/add.jsx
+
 
 import { useState } from 'react';
-import { View, Text, TextInput, Button, Alert, StyleSheet, Platform, TouchableOpacity } from 'react-native';
-import { loadTasks, saveTasks } from '../src/storage/taskStorage';
-import { v4 as uuidv4 } from 'uuid';
+import { View, Text, TextInput, Button, Alert, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import uuid from 'react-native-uuid';
+import { loadTasks, saveTasks } from '../src/storage/taskStorage';
+import { Picker } from '@react-native-picker/picker';
+import { PRIORITIES } from '../src/constants/priorities'; 
 
-// BARU: Definisikan kategori yang tersedia di satu tempat
-const categories = ['Mobile', 'RPL', 'IoT'];
+const categories = ['Mobile', 'RPL', 'IoT', 'General'];
 
 export default function AddTaskScreen() {
     const router = useRouter();
     const [title, setTitle] = useState('');
     const [desc, setDesc] = useState('');
-    // BARU: State untuk menyimpan kategori yang dipilih, default-nya 'Mobile'
     const [category, setCategory] = useState('Mobile');
+    const [deadline, setDeadline] = useState(''); 
+    const [priority, setPriority] = useState('Low'); 
 
     const handleAdd = async () => {
-        if (!title.trim() || !desc.trim()) {
-            Alert.alert('Error', 'Judul dan Deskripsi tidak boleh kosong.');
+        if (!title.trim()) {
+            Alert.alert('Error', 'Judul tidak boleh kosong.');
             return;
         }
         const tasks = await loadTasks() || [];
         const newTask = {
-            id: uuidv4(),
+            id: uuid.v4(),
             title,
             description: desc,
-            // DIUBAH: Menggunakan state 'category' dinamis
             category: category, 
-            deadline: '2025-12-31',
-            status: 'pending'
+            deadline: deadline, 
+            priority: priority, 
+            status: 'pending'   
         };
-        const updated = [...tasks, newTask];
-        await saveTasks(updated);
-
-        Alert.alert('Sukses', 'Tugas baru berhasil ditambahkan!');
+        await saveTasks([...tasks, newTask]);
         router.replace('/');
     };
 
     return (
         <View style={styles.container}>
             <Text style={styles.label}>Judul Tugas</Text>
-            <TextInput
-                style={styles.input}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Contoh: Belajar React Native"
-            />
-
+            <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Contoh: Belajar Prioritas" />
+            
             <Text style={styles.label}>Deskripsi</Text>
-            <TextInput
-                style={styles.input}
-                value={desc}
-                onChangeText={setDesc}
-                placeholder="Contoh: Menyelesaikan modul 1 sampai 5"
-                multiline
-            />
+            <TextInput style={styles.input} value={desc} onChangeText={setDesc} placeholder="Deskripsi singkat (opsional)" multiline />
+            
+            <Text style={styles.label}>Deadline (YYYY-MM-DD)</Text>
+            <TextInput style={styles.input} value={deadline} onChangeText={setDeadline} placeholder="Contoh: 2025-10-26" />
 
-            {/* BARU: Tampilan untuk memilih kategori */}
             <Text style={styles.label}>Kategori</Text>
-            <View style={styles.categoryContainer}>
-                {categories.map((cat) => (
-                    <TouchableOpacity
-                        key={cat}
-                        style={[
-                            styles.categoryButton,
-                            category === cat && styles.categoryButtonActive
-                        ]}
-                        onPress={() => setCategory(cat)}
-                    >
-                        <Text style={[
-                            styles.categoryText,
-                            category === cat && styles.categoryTextActive
-                        ]}>{cat}</Text>
-                    </TouchableOpacity>
-                ))}
+            <View style={styles.pickerWrap}>
+              <Picker selectedValue={category} onValueChange={(itemValue) => setCategory(itemValue)}>
+                {categories.map((cat) => <Picker.Item key={cat} label={cat} value={cat} />)}
+              </Picker>
+            </View>
+
+            <Text style={styles.label}>Prioritas</Text>
+            <View style={styles.pickerWrap}>
+              <Picker selectedValue={priority} onValueChange={(itemValue) => setPriority(itemValue)}>
+                {PRIORITIES.map((p) => <Picker.Item key={p} label={p} value={p} />)}
+              </Picker>
             </View>
             
-            <Button title="Tambah Tugas" onPress={handleAdd} />
+            <View style={{marginTop: 20}}>
+              <Button title="Simpan Tugas" onPress={handleAdd} />
+            </View>
         </View>
     );
 }
 
-// DIUBAH: Menambahkan style untuk pilihan kategori
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#fff',
-    },
-    label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ccc',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
-        fontSize: 16,
-        marginBottom: 20,
-    },
-    // BARU: Styles untuk container, tombol, dan teks kategori
-    categoryContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 24,
-    },
-    categoryButton: {
-        flex: 1,
-        paddingVertical: 12,
-        marginHorizontal: 4,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#0ea5e9',
-        alignItems: 'center',
-    },
-    categoryButtonActive: {
-        backgroundColor: '#0ea5e9',
-    },
-    categoryText: {
-        color: '#0ea5e9',
-        fontWeight: '600',
-    },
-    categoryTextActive: {
-        color: '#fff',
-    }
+    container: { flex: 1, padding: 20, backgroundColor: '#f8fafc' },
+    label: { fontSize: 16, fontWeight: '600', marginBottom: 8, color: '#334155' },
+    input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 12 : 8, fontSize: 16, marginBottom: 16, backgroundColor: '#fff' },
+    pickerWrap: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, marginBottom: 16, backgroundColor: '#fff' },
 });

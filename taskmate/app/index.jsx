@@ -1,50 +1,38 @@
-// app/index.jsx
 
-import { useState, useCallback } from 'react';
-import { SafeAreaView, StyleSheet, Text, FlatList, View, TouchableOpacity } from 'react-native';
+
+import { useState, useCallback, useMemo } from 'react';
+import { SafeAreaView, StyleSheet, Text, FlatList, View, Alert, Button } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import Picker from 'react-native-picker-select';
 import TaskItem from '../src/components/TaskItem';
+import FilterToolbarFancy from '../src/components/FilterToolbarFancy';
 import { loadTasks, saveTasks } from '../src/storage/taskStorage';
-
-const categoryItems = [
-  { label: 'Semua Kategori', value: 'All' },
-  { label: 'Mobile', value: 'Mobile' },
-  { label: 'RPL', value: 'RPL' },
-  { label: 'IoT', value: 'IoT' },
-];
+import { loadCategories } from '../src/storage/categoryStorage';
+import { weightOfPriority } from '../src/constants/priorities';
 
 export default function HomeScreen() {
   const [tasks, setTasks] = useState([]);
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [categories, setCategories] = useState([]);
+
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
 
   useFocusEffect(
     useCallback(() => {
-      const fetchTasks = async () => {
-        const data = await loadTasks();
-        setTasks(data || []);
+      const loadData = async () => {
+        setTasks(await loadTasks());
+        setCategories(await loadCategories());
       };
-      fetchTasks();
-      return () => {};
+      loadData();
     }, [])
   );
 
-  // DIUBAH: handleToggle sekarang mengikuti siklus 3 tahap
   const handleToggle = async (task) => {
     const getNextStatus = (currentStatus) => {
-      switch (currentStatus) {
-        case 'pending':
-          return 'todo'; // Dari Pending menjadi Todo
-        case 'todo':
-          return 'done'; // Dari Todo menjadi Done
-        case 'done':
-          return 'pending'; // Dari Done kembali ke Pending
-        default:
-          return 'pending';
-      }
+      if (currentStatus === 'pending') return 'todo';
+      if (currentStatus === 'todo') return 'done';
+      return 'done';
     };
-
     const updated = tasks.map((t) =>
       t.id === task.id ? { ...t, status: getNextStatus(t.status) } : t
     );
@@ -52,125 +40,156 @@ export default function HomeScreen() {
     await saveTasks(updated);
   };
 
-
   const handleDelete = async (taskToDelete) => {
-    const updated = tasks.filter((t) => t.id !== taskToDelete.id);
-    setTasks(updated);
-    await saveTasks(updated);
+    Alert.alert("Konfirmasi Hapus", `Yakin ingin menghapus "${taskToDelete.title}"?`,
+      [
+        { text: "Batal", style: "cancel" },
+        {
+          text: "Hapus", style: "destructive", onPress: async () => {
+            const updated = tasks.filter((t) => t.id !== taskToDelete.id);
+            setTasks(updated);
+            await saveTasks(updated);
+          },
+        },
+      ]
+    );
   };
 
-  const filteredTasks = tasks
-    .filter(task => { // DIUBAH: Logika filter status disesuaikan
-      if (activeFilter === 'all') return true;
-      if (activeFilter === 'pending') return task.status === 'pending';
-      if (activeFilter === 'todo') return task.status === 'todo';
-      if (activeFilter === 'done') return task.status === 'done';
-      return true;
-    })
-    .filter(task => {
-      if (activeCategory === 'All') return true;
-      return task.category === activeCategory;
-    });
 
+  const { doneCount, overdueCount } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return tasks.reduce((acc, task) => {
+      if (task.status === 'done') acc.doneCount++;
+      const deadlineDate = new Date(task.deadline);
+      if (task.deadline && deadlineDate < today && task.status !== 'done') {
+        acc.overdueCount++;
+      }
+      return acc;
+    }, { doneCount: 0, overdueCount: 0 });
+  }, [tasks]);
+
+
+  const handleClearDone = () => {
+    if (doneCount === 0) {
+      Alert.alert("Info", "Tidak ada tugas yang selesai untuk dihapus.");
+      return;
+    }
+    Alert.alert("Konfirmasi", `Yakin ingin menghapus ${doneCount} tugas yang sudah selesai?`, [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Hapus", style: "destructive", onPress: async () => {
+          const remainingTasks = tasks.filter(task => task.status !== 'done');
+          setTasks(remainingTasks);
+          await saveTasks(remainingTasks);
+        }
+      }
+    ]);
+  };
+
+
+  const handleClearAll = () => {
+    if (tasks.length === 0) {
+      Alert.alert("Info", "Daftar tugas sudah kosong.");
+      return;
+    }
+    Alert.alert("Konfirmasi", `Yakin ingin menghapus SEMUA (${tasks.length}) tugas?`, [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Hapus Semua", style: "destructive", onPress: async () => {
+          setTasks([]);
+          await saveTasks([]);
+        }
+      }
+    ]);
+  };
+
+  const filteredTasks = useMemo(() => {
+    return tasks
+      .filter(task => categoryFilter === 'all' || task.category === categoryFilter)
+      .filter(task => statusFilter === 'all' || task.status === statusFilter)
+      .filter(task => priorityFilter === 'all' || task.priority === priorityFilter);
+  }, [tasks, categoryFilter, statusFilter, priorityFilter]);
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>TaskMate - Daftar Tugas</Text>
-      
-      {/* DIUBAH: Filter status dengan tambahan tombol "Pending" */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity 
-            style={[styles.filterButton, activeFilter === 'all' && styles.activeFilter]} 
-            onPress={() => setActiveFilter('all')}>
-          <Text style={styles.filterText}>All</Text>
-        </TouchableOpacity>
-        {/* BARU: Tombol filter untuk status 'Pending' */}
-        <TouchableOpacity 
-            style={[styles.filterButton, activeFilter === 'pending' && styles.activeFilter]} 
-            onPress={() => setActiveFilter('pending')}>
-          <Text style={styles.filterText}>Pending</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-            style={[styles.filterButton, activeFilter === 'todo' && styles.activeFilter]} 
-            onPress={() => setActiveFilter('todo')}>
-          <Text style={styles.filterText}>Todo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-            style={[styles.filterButton, activeFilter === 'done' && styles.activeFilter]} 
-            onPress={() => setActiveFilter('done')}>
-          <Text style={styles.filterText}>Done</Text>
-        </TouchableOpacity>
+      <Text style={styles.header}>TaskMate – Daftar Tugas</Text>
+
+      <View style={styles.toolbarContainer}>
+        <FilterToolbarFancy
+          categories={categories}
+          categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter}
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+          priorityFilter={priorityFilter} setPriorityFilter={setPriorityFilter}
+        />
       </View>
 
-      <View style={styles.pickerContainer}>
-        <Picker
-          value={activeCategory}
-          onValueChange={(value) => setActiveCategory(value)}
-          items={categoryItems}
-          style={pickerSelectStyles}
-          placeholder={{ label: "Pilih kategori...", value: null }}
-        />
+      <View style={styles.summaryContainer}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Selesai</Text>
+          <Text style={styles.summaryValue}>{doneCount} / {tasks.length}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Overdue</Text>
+          <Text style={[styles.summaryValue, overdueCount > 0 && styles.overdueText]}>{overdueCount}</Text>
+        </View>
+      </View>
+
+      {/* BARU: Area untuk tombol Clear */}
+      <View style={styles.actionsContainer}>
+        <Button title="Clear Done" onPress={handleClearDone} color="#426effff" disabled={doneCount === 0} />
+        <Button title="Clear All" onPress={handleClearAll} color="#ef4444" disabled={tasks.length === 0} />
       </View>
 
       <FlatList
         data={filteredTasks}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 16 }}
-        renderItem={({ item }) => <TaskItem task={item} onToggle={handleToggle} onDelete={handleDelete}/>}
-        extraData={tasks} 
+        contentContainerStyle={{ paddingHorizontal: 16 }}
+        renderItem={({ item }) => (
+          <TaskItem
+            task={item}
+            categories={categories}
+            onToggle={handleToggle}
+            onDelete={handleDelete}
+          />
+        )}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30 }}>Tidak ada tugas yang sesuai.</Text>}
       />
     </SafeAreaView>
   );
 }
 
-// Styles tidak berubah, kecuali jika Anda ingin menyesuaikan ukuran tombol filter
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { fontSize: 20, fontWeight: '700', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  filterContainer: {
+  header: { fontSize: 22, fontWeight: '700', paddingHorizontal: 16, paddingTop: 16 },
+  toolbarContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  summaryContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    gap: 12,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingTop: 12,
   },
-  filterButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12, // Sedikit dikecilkan agar muat
-    borderRadius: 20,
-    backgroundColor: '#e2e8f0',
+  summaryCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
   },
-  activeFilter: {
-    backgroundColor: '#0ea5e9',
-  },
-  filterText: {
-    fontWeight: '600',
-    fontSize: 12, // Sedikit dikecilkan agar muat
-    color: '#0f172a',
-  },
-  pickerContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  }
-});
+  summaryLabel: { fontSize: 13, color: '#64748b', marginBottom: 2 },
+  summaryValue: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
+  overdueText: { color: '#ef4444' },
 
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    color: 'black',
-    paddingRight: 30,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
 });
