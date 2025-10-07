@@ -1,19 +1,73 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-const TASKS_KEY = 'TASKMATE_TASKS';
+import { API_BASE } from '../config/api';
 
-export async function  saveTasks(tasks){
-    try {
-        await AsyncStorage.setItem(TASKS_KEY,JSON.stringify(tasks));
-    } catch (e) {console.error('Failed to save tasks',e);}
-};
+// Ambil semua task
+export async function loadTasks() {
+  try {
+    const res = await fetch(`${API_BASE}/tasks`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
 
-export async function loadTasks(){
+// Ambil 1 task berdasarkan ID
+export async function getTaskById(id) {
+  try {
+    const res = await fetch(`${API_BASE}/tasks/${id}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Buat task baru
+export async function createTask(task) {
+  try {
+    const res = await fetch(`${API_BASE}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(task),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Update task (patch)
+export async function updateTask(id, patch) {
+  try {
+    const res = await fetch(`${API_BASE}/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Hapus task
+export async function deleteTask(id) {
+  try {
+    const res = await fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Hapus semua task (opsional, jika backend mendukung)
+export async function clearTasks() {
     try {
-        const json = await AsyncStorage.getItem(TASKS_KEY);
-        return json ? JSON.parse(json) : [];
+        const items = await loadTasks();
+        // Backend tidak memiliki endpoint bulk delete, jadi kita hapus satu per satu
+        await Promise.all(items.map(it => deleteTask(it.id)));
+        return true;
+    } catch {
+        return false;
     }
-    catch{
-        console.error('Failed to load tasks');
-        return [];
-    }
-};
+}
