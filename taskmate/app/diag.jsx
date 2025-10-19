@@ -1,50 +1,100 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Button, ActivityIndicator, Alert } from 'react-native';
-import { API_BASE } from '../src/config/api';
+// app/diag.jsx
+
+import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { loadTasks } from '../src/storage/taskStorage';
-import { loadCategories } from '../src/storage/categoryStorage';
+import { PieChart } from 'react-native-gifted-charts';
 
-export default function Diagnostics() {
-    const [status, setStatus] = useState({ api: false, tasks: 0, cats: 0, base: API_BASE, err: '' });
-    const [loading, setLoading] = useState(false);
+export default function DiagScreen() {
+    const [tasks, setTasks] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const ping = async () => {
+    // Fungsi untuk memuat dan memproses data
+    const fetchData = async () => {
         setLoading(true);
-        try {
-            const res = await fetch(`${API_BASE}/health`);
-            const ok = res.ok;
-            const [tasks, cats] = await Promise.all([loadTasks(), loadCategories()]);
-            setStatus({ api: ok, tasks: tasks.length, cats: cats.length, base: API_BASE, err: '' });
-        } catch (e) {
-            const errorString = String(e);
-            setStatus(s => ({ ...s, err: errorString }));
-            Alert.alert('Network Error', errorString);
-        } finally {
-            setLoading(false);
-        }
+        const loadedTasks = await loadTasks();
+        setTasks(loadedTasks);
+        setLoading(false);
     };
 
-    useEffect(() => {
-        ping();
-    }, []);
+    // Gunakan useFocusEffect untuk memanggil fetchData setiap kali layar ini aktif/fokus
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [])
+    );
+
+    if (loading) {
+        return <ActivityIndicator size="large" color="#0000ff" style={{ flex: 1 }} />;
+    }
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === 'completed').length;
+    const pendingTasks = totalTasks - completedTasks;
+    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+    const pieData = [
+        { value: pendingTasks, color: '#f59e0b', text: `${pendingTasks}` },
+        { value: completedTasks, color: '#10b981', text: `${completedTasks}` }
+    ];
 
     return (
         <View style={styles.container}>
-            <Text style={styles.h}>Diagnostics</Text>
-            <Text style={styles.kv}>API_BASE: <Text style={styles.mono}>{status.base}</Text></Text>
-            <Text style={styles.kv}>API /health: <Text style={{ color: status.api ? '#16a34a' : '#dc2626' }}>{String(status.api)}</Text></Text>
-            <Text style={styles.kv}>Tasks fetched: {status.tasks}</Text>
-            <Text style={styles.kv}>Categories fetched: {status.cats}</Text>
-            {status.err ? <Text style={[styles.kv, { color: '#dc2626' }]}>Error: {status.err}</Text> : null}
-            <View style={{ height: 12 }} />
-            {loading ? <ActivityIndicator /> : <Button title="Re-run Checks" onPress={ping} />}
+            <Text style={styles.header}>Statistik Tugas</Text>
+
+            <View style={styles.kpiContainer}>
+                <View style={styles.kpiBox}>
+                    <Text style={styles.kpiValue}>{totalTasks}</Text>
+                    <Text style={styles.kpiLabel}>Total Tugas</Text>
+                </View>
+                <View style={styles.kpiBox}>
+                    <Text style={styles.kpiValue}>{completionRate.toFixed(1)}%</Text>
+                    <Text style={styles.kpiLabel}>Selesai</Text>
+                </View>
+            </View>
+
+            <View style={{ alignItems: 'center', marginTop: 30 }}>
+                <Text style={styles.chartTitle}>Komposisi Tugas</Text>
+                {totalTasks > 0 ? (
+                    <PieChart
+                        data={pieData}
+                        donut
+                        showText
+                        textColor="black"
+                        radius={120}
+                        innerRadius={60}
+                        textSize={20}
+                        focusOnPress
+                    />
+                ) : (
+                    <Text style={styles.noDataText}>Belum ada tugas.</Text>
+                )}
+                 <View style={styles.legendContainer}>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendColor, { backgroundColor: '#10b981' }]} />
+                        <Text>Selesai</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                        <View style={[styles.legendColor, { backgroundColor: '#f59e0b' }]} />
+                        <Text>Tertunda</Text>
+                    </View>
+                </View>
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-    h: { fontSize: 20, fontWeight: '800', marginBottom: 8, color: '#0f172a' },
-    kv: { fontSize: 14, color: '#334155', marginTop: 6 },
-    mono: { fontFamily: 'monospace' }
+    container: { flex: 1, padding: 20, backgroundColor: '#f8fafc' },
+    header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#1e293b', textAlign: 'center' },
+    kpiContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
+    kpiBox: { backgroundColor: 'white', padding: 20, borderRadius: 10, alignItems: 'center', width: '45%', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
+    kpiValue: { fontSize: 28, fontWeight: 'bold', color: '#0f172a' },
+    kpiLabel: { fontSize: 16, color: '#64748b', marginTop: 5 },
+    chartTitle: { fontSize: 20, fontWeight: '600', marginBottom: 20, color: '#334155' },
+    noDataText: { marginTop: 20, fontSize: 16, color: '#64748b' },
+    legendContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 20, gap: 20 },
+    legendItem: { flexDirection: 'row', alignItems: 'center' },
+    legendColor: { width: 20, height: 20, borderRadius: 10, marginRight: 8 },
 });

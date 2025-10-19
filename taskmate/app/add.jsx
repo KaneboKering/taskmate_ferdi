@@ -1,5 +1,4 @@
 
-
 import { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -31,9 +30,9 @@ export default function AddTaskScreen() {
             category: category, 
             deadline: deadline, 
             priority: priority, 
-            status: 'pending'   
+            status: 'pending',
         };
-        await saveTasks([...tasks, newTask]);
+        await saveTasks(newTask);
         router.replace('/');
     };
 

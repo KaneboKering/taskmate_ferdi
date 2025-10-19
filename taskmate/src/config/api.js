@@ -7,9 +7,9 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: 'http://10.74.11.38:4000',
+  baseURL: 'http://192.168.1.7:4000',
   timeout: 8000,
   // headers: { 'Content-Type': 'application/json' },
 });
 
-export const API_BASE = 'http://10.74.11.38:4000';
+export const API_BASE = 'http://192.168.1.7:4000';

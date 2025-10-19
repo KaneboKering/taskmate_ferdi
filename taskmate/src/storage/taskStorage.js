@@ -23,7 +23,7 @@ export async function getTaskById(id) {
 }
 
 // Buat task baru
-export async function createTask(task) {
+export async function saveTasks(task) {
   try {
     const res = await fetch(`${API_BASE}/tasks`, {
       method: 'POST',
