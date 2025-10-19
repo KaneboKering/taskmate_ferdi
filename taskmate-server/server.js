@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import taskRoutes from './routes/taskRoutes.js'; 
+import taskRoutes from './routes/taskRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import auth from './middleware/auth.js';
 
 dotenv.config();
 
@@ -12,8 +14,12 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.use('/tasks', taskRoutes);
-app.use('/categories', categoryRoutes);
+// Rute publik
+app.use('/auth', authRoutes);
+
+// Rute yang dilindungi
+app.use('/tasks', auth, taskRoutes);
+app.use('/categories', auth, categoryRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
